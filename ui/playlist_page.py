@@ -8,7 +8,30 @@ from kivy.uix.checkbox import CheckBox
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.floatlayout import FloatLayout
+from kivy.graphics import Color, RoundedRectangle
 from repositories.image_repository import ImageRepository
+from ui.main_page import RoundedButton
+
+class SmallRoundedButton(Button):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.background_normal = ''
+        self.background_color = (0, 0, 0, 0)
+        self.color = (1, 1, 1, 1)
+        self.background_down = ''
+        self.background_disabled_normal = ''
+        self.background_disabled_down = ''
+        self.border = (0, 0, 0, 0)
+        with self.canvas.before:
+            Color(0.27, 0.6, 0.93, 1)
+            self.bg = RoundedRectangle(
+                pos=self.pos, size=self.size, radius=[8]
+            )
+        self.bind(pos=self.update_bg, size=self.update_bg)
+
+    def update_bg(self, *args):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
 
 IMAGES_DIR = os.path.join(os.path.dirname(__file__), '../images')
 
@@ -33,7 +56,7 @@ class PlaylistScreen(Screen):
         all_box.add_widget(all_checkbox)
         all_box.add_widget(Label(text='All', size_hint=(None, 1), width=40, color=(0,0,0,1)))
         header.add_widget(all_box)
-        slideshow_btn = Button(text='Slideshow', size_hint=(None, 1), width=120, background_normal='', background_color=(0.27, 0.6, 0.93, 1), color=(1,1,1,1), font_size='20sp')
+        slideshow_btn = SmallRoundedButton(text='Slideshow', size_hint=(None, 1), width=120, font_size='20sp')
         slideshow_btn.bind(on_release=self.goto_slideshow)
         header.add_widget(slideshow_btn)
         self.root_layout.add_widget(header)
@@ -46,11 +69,11 @@ class PlaylistScreen(Screen):
             cell = BoxLayout(orientation='vertical', size_hint_y=None, height=180)
             float_layout = FloatLayout(size_hint=(1, None), height=100)
             if os.path.exists(img_path):
-                img = Image(source=img_path, size_hint=(1, 1), pos_hint={'x': 0, 'y': 0}, allow_stretch=True, keep_ratio=True)
+                img = Image(source=img_path, size_hint=(0.85, 1), pos_hint={'x': 0.15, 'y': 0}, allow_stretch=True, keep_ratio=False)
             else:
-                img = Label(text='No Image', size_hint=(1, 1), pos_hint={'x': 0, 'y': 0})
+                img = Label(text='No Image', size_hint=(0.85, 1), pos_hint={'x': 0.15, 'y': 0})
             float_layout.add_widget(img)
-            checkbox = CheckBox(size_hint=(None, None), size=(30, 30), pos_hint={'x': 0, 'top': 1}, color=(0.1, 0.2, 0.3, 1))
+            checkbox = CheckBox(size_hint=(None, None), size=(30, 30), pos_hint={'x': -0.05, 'center_y': 0.80}, color=(0.1, 0.2, 0.3, 1))
             checkbox.bind(active=self.on_checkbox)
             float_layout.add_widget(checkbox)
             cell.add_widget(float_layout)
