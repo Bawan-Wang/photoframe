@@ -47,9 +47,25 @@ class PlaylistScreen(Screen):
 
     def build_header(self):
         header = BoxLayout(orientation='horizontal', size_hint=(1, None), height=60, padding=[20, 10, 20, 10], spacing=40)
-        back_btn = Button(text=u"\u21B6", font_size='32sp', size_hint=(None, 1), width=60, background_normal='', background_color=(0,0,0,0), color=(0,0,0,1))
-        back_btn.bind(on_release=self.goto_home)
-        header.add_widget(back_btn)
+        
+        # Back button with icon
+        icon_path = os.path.join(os.path.dirname(__file__), 'icons', 'back_button.png')
+        if os.path.exists(icon_path):
+            # Use the icon as button background for better click handling
+            back_btn = Button(
+                size_hint=(None, 1), 
+                width=60, 
+                background_normal=icon_path,
+                background_color=(1, 1, 1, 1),
+                border=(0, 0, 0, 0)
+            )
+            back_btn.bind(on_release=self.goto_home)
+            header.add_widget(back_btn)
+        else:
+            # Fallback to text if image not found
+            back_btn = Button(text=u"←", font_size='32sp', size_hint=(None, 1), width=60, background_normal='', background_color=(0,0,0,0), color=(0,0,0,1))
+            back_btn.bind(on_release=self.goto_home)
+            header.add_widget(back_btn)
         all_box = BoxLayout(orientation='horizontal', size_hint=(None, 1), width=80, spacing=2)
         all_checkbox = CheckBox(size_hint=(None, 1), width=30, color=(0.1, 0.2, 0.3, 1))
         all_checkbox.bind(active=self.on_all_checkbox)
