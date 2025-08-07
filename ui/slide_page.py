@@ -24,6 +24,11 @@ class SlideshowScreen(Screen):
         )
         layout.add_widget(self.img_widget)
 
+        # --- UI container for all buttons ---
+        from kivy.uix.widget import Widget
+        from kivy.clock import Clock
+        self.ui_container = FloatLayout(size_hint=(1, 1), pos_hint={'center_x': 0.5, 'center_y': 0.5})
+
         # Back button with icon - consistent with playlist_page.py
         icon_path = os.path.join(os.path.dirname(__file__), 'icons', 'back_button.png')
         if os.path.exists(icon_path):
@@ -49,7 +54,7 @@ class SlideshowScreen(Screen):
                 color=(0, 0, 0, 1)
             )
         back_btn.bind(on_release=self.goto_home)
-        layout.add_widget(back_btn)
+        self.ui_container.add_widget(back_btn)
 
         # Previous button with icon
         prev_icon_path = os.path.join(os.path.dirname(__file__), 'icons', 'previous_arrow.png')
@@ -75,7 +80,7 @@ class SlideshowScreen(Screen):
                 color=(0.2, 0.2, 0.2, 1)
             )
         prev_btn.bind(on_release=self.prev_image)
-        layout.add_widget(prev_btn)
+        self.ui_container.add_widget(prev_btn)
 
         # Next button with icon
         next_icon_path = os.path.join(os.path.dirname(__file__), 'icons', 'next_arrow.png')
@@ -101,22 +106,58 @@ class SlideshowScreen(Screen):
                 color=(0.2, 0.2, 0.2, 1)
             )
         next_btn.bind(on_release=self.next_image)
-        layout.add_widget(next_btn)
+        self.ui_container.add_widget(next_btn)
 
+        layout.add_widget(self.ui_container)
         self.add_widget(layout)
+
+        # --- UI auto-hide logic ---
+        self._ui_timer = None
+        # 初始化時隱藏UI
+        self.hide_ui()
 
     def on_pre_enter(self, *args):
         self.service.refresh_images()
         self.img_widget.source = self.service.get_current_image()
+        # 確保進入畫面時UI是隱藏的
+        self.hide_ui()
 
     def on_leave(self, *args):
-        pass
+        # 離開畫面時取消計時器
+        if self._ui_timer:
+            self._ui_timer.cancel()
+            self._ui_timer = None
 
     def next_image(self, instance):
         self.img_widget.source = self.service.next_image()
+        # 切換圖片時也重置UI計時器
+        self.reset_ui_timer()
 
     def prev_image(self, instance):
         self.img_widget.source = self.service.prev_image()
+        # 切換圖片時也重置UI計時器
+        self.reset_ui_timer()
 
     def goto_home(self, instance):
-        self.manager.current = 'home' 
+        self.manager.current = 'home'
+
+    def on_touch_down(self, touch):
+        # 處理觸碰事件，確保UI顯示並重置計時器
+        self.show_ui()
+        self.reset_ui_timer()
+        # 繼續傳遞觸碰事件給子元件
+        return super().on_touch_down(touch)
+
+    def show_ui(self):
+        self.ui_container.opacity = 1
+        self.ui_container.disabled = False
+
+    def hide_ui(self, *args):
+        self.ui_container.opacity = 0
+        self.ui_container.disabled = True
+
+    def reset_ui_timer(self):
+        from kivy.clock import Clock
+        if self._ui_timer:
+            self._ui_timer.cancel()
+        self._ui_timer = Clock.schedule_once(self.hide_ui, 5) 
