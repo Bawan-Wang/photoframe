@@ -3,6 +3,7 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 from kivy.uix.button import Button
+from kivy.clock import Clock
 from services.slideshow_service import SlideshowService
 from repositories.image_repository import ImageRepository
 
@@ -13,6 +14,7 @@ class SlideshowScreen(Screen):
         super().__init__(**kwargs)
         self.repository = ImageRepository(IMAGES_DIR)
         self.service = SlideshowService(self.repository)
+        self.selected_images = None  # 存儲選中的圖片列表
 
         layout = FloatLayout()
 
@@ -116,29 +118,85 @@ class SlideshowScreen(Screen):
         # 初始化時隱藏UI
         self.hide_ui()
 
+    def set_selected_images(self, selected_images):
+        """設置選中的圖片列表"""
+        self.selected_images = selected_images
+
     def on_pre_enter(self, *args):
+        """頁面進入前準備"""
         self.service.refresh_images()
-        self.img_widget.source = self.service.get_current_image()
+        
+        # 如果有選中的圖片，設置為自定義播放列表
+        if self.selected_images and len(self.selected_images) > 0:
+            self.service.set_custom_playlist(self.selected_images)
+        else:
+            # 如果沒有選中的圖片，使用所有圖片
+            self.service.clear_custom_playlist()
+        
+        # 設置圖片改變時的回調函數
+        self.service.set_image_changed_callback(self.on_image_changed)
+        
+        # 顯示當前圖片
+        current_image = self.service.get_current_image()
+        if current_image:
+            self.img_widget.source = current_image
+        
+        # 啟動自動播放
+        self.service.start_auto_play()
+        
         # 確保進入畫面時UI是隱藏的
         self.hide_ui()
 
     def on_leave(self, *args):
+        """離開頁面時停止自動播放"""
+        # 停止自動播放
+        self.service.stop_auto_play()
+        
         # 離開畫面時取消計時器
         if self._ui_timer:
             self._ui_timer.cancel()
             self._ui_timer = None
 
+    def on_image_changed(self, image_path):
+        """圖片改變時的回調函數 - 使用Clock確保在主線程中更新UI"""
+        # 使用Clock.schedule_once確保UI更新在主線程中進行
+        Clock.schedule_once(lambda dt: self._update_image_safe(image_path), 0)
+
+    def _update_image_safe(self, image_path):
+        """在主線程中安全地更新圖片"""
+        try:
+            if image_path and os.path.exists(image_path):
+                self.img_widget.source = image_path
+                # 強制重新加載圖片
+                self.img_widget.reload()
+            else:
+                print(f"圖片路徑不存在或無效: {image_path}")
+        except Exception as e:
+            print(f"更新圖片時發生錯誤: {e}")
+
     def next_image(self, instance):
-        self.img_widget.source = self.service.next_image()
+        # 手動切換圖片時停止自動播放
+        self.service.stop_auto_play()
+        next_img = self.service.next_image()
+        if next_img:
+            self.img_widget.source = next_img
+            self.img_widget.reload()
         # 切換圖片時也重置UI計時器
         self.reset_ui_timer()
 
     def prev_image(self, instance):
-        self.img_widget.source = self.service.prev_image()
+        # 手動切換圖片時停止自動播放
+        self.service.stop_auto_play()
+        prev_img = self.service.prev_image()
+        if prev_img:
+            self.img_widget.source = prev_img
+            self.img_widget.reload()
         # 切換圖片時也重置UI計時器
         self.reset_ui_timer()
 
     def goto_home(self, instance):
+        # 返回主頁時停止自動播放
+        self.service.stop_auto_play()
         self.manager.current = 'home'
 
     def on_touch_down(self, touch):
@@ -157,7 +215,6 @@ class SlideshowScreen(Screen):
         self.ui_container.disabled = True
 
     def reset_ui_timer(self):
-        from kivy.clock import Clock
         if self._ui_timer:
             self._ui_timer.cancel()
         self._ui_timer = Clock.schedule_once(self.hide_ui, 5) 
