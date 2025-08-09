@@ -35,6 +35,7 @@ class HomeScreen(Screen):
         btn3 = RoundedButton(text='Setup', size_hint=(1, 1))
         btn1.bind(on_release=self.goto_playlist)
         btn2.bind(on_release=self.goto_slideshow)
+        btn3.bind(on_release=self.goto_setup)
         layout.add_widget(btn1)
         layout.add_widget(btn2)
         layout.add_widget(btn3)
@@ -45,3 +46,6 @@ class HomeScreen(Screen):
 
     def goto_slideshow(self, instance):
         self.manager.current = 'slideshow'
+        
+    def goto_setup(self, instance):
+        self.manager.current = 'setup'

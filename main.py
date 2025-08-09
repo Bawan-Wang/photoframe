@@ -4,6 +4,7 @@ from kivy.uix.screenmanager import ScreenManager, FadeTransition
 from ui.main_page import HomeScreen
 from ui.slide_page import SlideshowScreen
 from ui.playlist_page import PlaylistScreen
+from ui.setup_page import SetupScreen
 
 class MainApp(App):
     def build(self):
@@ -12,6 +13,7 @@ class MainApp(App):
         sm.add_widget(HomeScreen(name='home'))
         sm.add_widget(SlideshowScreen(name='slideshow'))
         sm.add_widget(PlaylistScreen(name='playlist'))
+        sm.add_widget(SetupScreen(name='setup'))
         return sm
 
 if __name__ == '__main__':
