@@ -9,6 +9,7 @@ from kivy.uix.slider import Slider
 from kivy.uix.popup import Popup
 from kivy.graphics import Color, RoundedRectangle
 from kivy.properties import NumericProperty, BooleanProperty
+from services.service_manager import ServiceManager
 
 class CustomNumberInput(TextInput):
     def __init__(self, **kwargs):
@@ -19,7 +20,8 @@ class CustomNumberInput(TextInput):
         self.font_size = '18sp'
         self.color = (0, 0, 0, 1)  # 黑色文字
         self.multiline = False
-        self.input_filter = 'int'  # 只允許輸入整數
+        # 移除过于严格的input_filter，允许用户正常输入
+        # self.input_filter = 'int'  # 只允許輸入整數
         
         # 設定文字對齊 - 水平置中，垂直置中
         self.halign = 'center'
@@ -30,15 +32,25 @@ class CustomNumberInput(TextInput):
         self.foreground_color = (0, 0, 0, 1)  # 黑色文字
         self.cursor_color = (0, 0, 0, 1)  # 黑色游標
         
-        # 綁定文字變更事件
-        self.bind(text=self.on_text_change)
+        # 綁定文字變更事件和失去焦点事件
+        self.bind(text=self.on_text_change, on_text_validate=self.on_text_validate)
     
     def on_text_change(self, instance, value):
         try:
             # 觸發回調
             if hasattr(self, 'on_value_change'):
                 self.on_value_change(self, value)
-        except:
+        except Exception as e:
+            print(f"Text change callback error: {e}")
+            pass
+    
+    def on_text_validate(self, instance=None):
+        """当用户按回车键或失去焦点时进行严格验证"""
+        try:
+            if hasattr(self, 'on_value_change'):
+                self.on_value_change(self, self.text)
+        except Exception as e:
+            print(f"Text validate callback error: {e}")
             pass
 
 class RoundedSwitch(Switch):
@@ -68,11 +80,33 @@ class SetupScreen(Screen):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.service_manager = ServiceManager()
         self.root_layout = BoxLayout(orientation='vertical', spacing=0, padding=0)
         self.build_header()
         self.build_settings()
         self.add_widget(self.root_layout)
+        # 初始化时加载当前设置
+        self.load_current_settings()
     
+    def load_current_settings(self):
+        """加载当前设置"""
+        settings = self.service_manager.get_all_settings()
+        self.slideshow_interval = settings['slideshow_interval']
+        self.slideshow_loop = settings['slideshow_loop']
+        self.brightness = settings['brightness']
+        
+        # 更新UI显示
+        if hasattr(self, 'interval_input'):
+            self.interval_input.text = str(self.slideshow_interval)
+        if hasattr(self, 'loop_switch'):
+            self.loop_switch.active = self.slideshow_loop
+        if hasattr(self, 'brightness_slider'):
+            self.brightness_slider.value = self.brightness
+        if hasattr(self, 'brightness_label'):
+            self.brightness_label.text = str(self.brightness)
+        if hasattr(self, 'loop_status_label'):
+            self.loop_status_label.text = 'On' if self.slideshow_loop else 'Off'
+
     def build_header(self):
         """構建頁面標題和返回按鈕"""
         header = BoxLayout(orientation='horizontal', size_hint=(1, None), height=60, padding=[20, 10, 20, 10])
@@ -271,28 +305,50 @@ class SetupScreen(Screen):
     def on_interval_change(self, instance, value):
         """處理幻燈片間隔變更"""
         try:
+            # 如果输入为空，不进行处理
+            if not value.strip():
+                return
+                
             interval = int(value)
+            
+            # 检查范围
             if 1 <= interval <= 30:
+                # 有效值，更新设置
                 self.slideshow_interval = interval
+                # 实时更新服务管理器中的设置
+                self.service_manager.set_slideshow_interval(float(interval))
+                print(f"设置幻灯片间隔为: {interval} 秒")
             else:
-                # 如果超出範圍，重置為有效值
+                # 超出范围，进行智能重置
                 if interval < 1:
-                    self.interval_input.text = '1'
+                    corrected_value = 1
                 else:
-                    self.interval_input.text = '30'
+                    corrected_value = 30
+                
+                # 重置为有效值
+                self.interval_input.text = str(corrected_value)
+                self.slideshow_interval = corrected_value
+                self.service_manager.set_slideshow_interval(float(corrected_value))
+                print(f"输入值 {interval} 超出范围，已自动调整为: {corrected_value} 秒")
+                
         except ValueError:
-            # 如果輸入無效，重置為當前值
+            # 如果输入无效（非数字），重置为当前值
+            print(f"输入值 '{value}' 不是有效数字，已重置为: {self.slideshow_interval} 秒")
             self.interval_input.text = str(self.slideshow_interval)
     
     def on_loop_change(self, instance, value):
         """處理幻燈片循環變更"""
         self.slideshow_loop = value
         self.loop_status_label.text = 'On' if value else 'Off'
+        # 实时更新服务管理器中的设置
+        self.service_manager.set_slideshow_loop(value)
     
     def on_brightness_change(self, instance, value):
         """處理亮度變更"""
         self.brightness = int(value)
         self.brightness_label.text = str(self.brightness)
+        # 实时更新服务管理器中的设置
+        self.service_manager.set_brightness(int(value))
     
     def goto_home(self, instance):
         """返回主頁"""
@@ -317,3 +373,6 @@ class SetupScreen(Screen):
         self.loop_switch.active = self.slideshow_loop
         self.brightness_slider.value = self.brightness
         self.brightness_label.text = str(self.brightness)
+        
+        # 同时更新服务管理器中的设置
+        self.service_manager.set_all_settings(settings)

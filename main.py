@@ -5,9 +5,13 @@ from ui.main_page import HomeScreen
 from ui.slide_page import SlideshowScreen
 from ui.playlist_page import PlaylistScreen
 from ui.setup_page import SetupScreen
+from services.service_manager import ServiceManager
 
 class MainApp(App):
     def build(self):
+        # 初始化服务管理器
+        self.service_manager = ServiceManager()
+        
         Window.clearcolor = (0.95, 0.95, 0.95, 1)
         sm = ScreenManager(transition=FadeTransition())
         sm.add_widget(HomeScreen(name='home'))

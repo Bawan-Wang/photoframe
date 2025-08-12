@@ -4,16 +4,15 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 from kivy.uix.button import Button
 from kivy.clock import Clock
-from services.slideshow_service import SlideshowService
-from repositories.image_repository import ImageRepository
+from services.service_manager import ServiceManager
 
 IMAGES_DIR = os.path.join(os.path.dirname(__file__), '../images')
 
 class SlideshowScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.repository = ImageRepository(IMAGES_DIR)
-        self.service = SlideshowService(self.repository)
+        self.service_manager = ServiceManager()
+        self.service = self.service_manager.get_slideshow_service()
         self.selected_images = None  # 存儲選中的圖片列表
 
         layout = FloatLayout()
@@ -121,23 +120,33 @@ class SlideshowScreen(Screen):
     def set_selected_images(self, selected_images):
         """設置選中的圖片列表"""
         self.selected_images = selected_images
+        print(f"SlideshowScreen received {len(selected_images)} selected images")
+        print(f"Selected images: {selected_images[:3]}...")  # 显示前3个
 
     def on_pre_enter(self, *args):
         """頁面進入前準備"""
-        self.service.refresh_images()
+        print(f"SlideshowScreen on_pre_enter - selected_images: {self.selected_images}")
+        
+        # 不要在这里调用refresh_images，因为它会覆盖自定义播放列表
+        # self.service.refresh_images()
         
         # 如果有選中的圖片，設置為自定義播放列表
         if self.selected_images and len(self.selected_images) > 0:
+            print(f"Setting custom playlist with {len(self.selected_images)} images")
             self.service.set_custom_playlist(self.selected_images)
         else:
+            print("No selected images, using all images")
             # 如果沒有選中的圖片，使用所有圖片
             self.service.clear_custom_playlist()
+            # 只有在没有自定义播放列表时才刷新图片
+            self.service.refresh_images()
         
         # 設置圖片改變時的回調函數
         self.service.set_image_changed_callback(self.on_image_changed)
         
         # 顯示當前圖片
         current_image = self.service.get_current_image()
+        print(f"Current image: {current_image}")
         if current_image:
             self.img_widget.source = current_image
         

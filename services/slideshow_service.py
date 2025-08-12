@@ -104,15 +104,9 @@ class SlideshowService:
             self.index = 0
             return
         
-        # 驗證所有路徑都存在於images中
-        valid_paths = []
-        for path in image_paths:
-            if path in self.images:
-                valid_paths.append(path)
-            else:
-                print(f"Warning: Image path not found: {path}")
-        
-        self.custom_playlist = valid_paths
+        # 直接使用传入的图片路径，不需要验证是否存在于self.images中
+        # 因为播放列表传递的是完整路径，这些路径是有效的
+        self.custom_playlist = image_paths
         self.index = 0
 
     def clear_custom_playlist(self):

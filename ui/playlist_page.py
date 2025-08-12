@@ -102,6 +102,9 @@ class PlaylistScreen(Screen):
             for checkbox in self.image_checkboxes:
                 if hasattr(checkbox, 'img_path') and checkbox.img_path in image_states:
                     checkbox.active = image_states[checkbox.img_path]
+            
+            # 同步self.selected集合与勾选框状态
+            self._sync_selected_with_checkboxes()
         else:
             # 如果沒有保存的狀態，使用默認值（全部選中）
             self.selected.clear()
@@ -113,6 +116,13 @@ class PlaylistScreen(Screen):
             
             for checkbox in self.image_checkboxes:
                 checkbox.active = True
+    
+    def _sync_selected_with_checkboxes(self):
+        """同步self.selected集合与勾选框状态"""
+        self.selected.clear()
+        for checkbox in self.image_checkboxes:
+            if checkbox.active and hasattr(checkbox, 'img_path'):
+                self.selected.add(checkbox.img_path)
 
     def on_leave(self, *args):
         """頁面離開時保存勾選框狀態"""
@@ -201,6 +211,10 @@ class PlaylistScreen(Screen):
         
         # 保存狀態
         self.save_checkbox_state()
+        
+        # 打印调试信息
+        print(f"Checkbox changed: {checkbox.img_path} -> {value}")
+        print(f"Selected images count: {len(self.selected)}")
 
     def on_all_checkbox(self, checkbox, value):
         """處理All勾選框的變化"""
@@ -222,6 +236,11 @@ class PlaylistScreen(Screen):
         
         # 保存狀態
         self.save_checkbox_state()
+        
+        # 打印调试信息
+        print(f"All checkbox changed to: {value}")
+        print(f"Selected images count: {len(self.selected)}")
+        print(f"Selected images: {list(self.selected)[:3]}...")  # 显示前3个
 
     def update_all_checkbox_state(self):
         """根據個別勾選框狀態更新All勾選框狀態"""
@@ -244,6 +263,10 @@ class PlaylistScreen(Screen):
         """跳轉到幻燈片頁面並傳遞選中的圖片列表"""
         # 獲取選中的圖片列表
         selected_images = list(self.selected)
+        
+        # 打印调试信息
+        print(f"Going to slideshow with {len(selected_images)} selected images")
+        print(f"Selected images: {selected_images[:3]}...")  # 显示前3个
         
         # 檢查是否有選中的圖片
         if not selected_images:
