@@ -75,7 +75,7 @@ class RoundedSlider(Slider):
 
 class SetupScreen(Screen):
     slideshow_interval = NumericProperty(1)
-    slideshow_loop = BooleanProperty(False)
+    slideshow_loop = BooleanProperty(True)  # 默认开启循环
     brightness = NumericProperty(50)
     
     def __init__(self, **kwargs):
@@ -100,12 +100,17 @@ class SetupScreen(Screen):
             self.interval_input.text = str(self.slideshow_interval)
         if hasattr(self, 'loop_switch'):
             self.loop_switch.active = self.slideshow_loop
-        if hasattr(self, 'brightness_slider'):
-            self.brightness_slider.value = self.brightness
         if hasattr(self, 'brightness_label'):
             self.brightness_label.text = str(self.brightness)
+        if hasattr(self, 'brightness_slider'):
+            self.brightness_slider.value = self.brightness
         if hasattr(self, 'loop_status_label'):
             self.loop_status_label.text = 'On' if self.slideshow_loop else 'Off'
+        
+        # 确保slideshow_service的设置与UI同步
+        self.service_manager.set_slideshow_interval(self.slideshow_interval)
+        self.service_manager.set_slideshow_loop(self.slideshow_loop)
+        self.service_manager.set_brightness(self.brightness)
 
     def build_header(self):
         """構建頁面標題和返回按鈕"""

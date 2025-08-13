@@ -12,10 +12,13 @@ class SlideshowService:
         self.auto_play_thread = None
         self.custom_playlist = None
         self.on_image_changed_callback = None
+        self.slideshow_loop = False  # 添加循环播放状态
+        self.has_played_once = False  # 标记是否已经播放过一次
 
     def refresh_images(self):
         self.images = self.image_repository.get_image_files()
         self.index = 0
+        self.has_played_once = False  # 重置播放状态
         # 如果使用自定義播放列表，需要重新驗證索引
         if self.custom_playlist:
             self._validate_custom_playlist()
@@ -35,12 +38,30 @@ class SlideshowService:
         if not self.images:
             return ''
         
-        if self.custom_playlist:
-            if not self.custom_playlist:
-                return ''
-            self.index = (self.index + 1) % len(self.custom_playlist)
+        current_list = self.custom_playlist if self.custom_playlist else self.images
+        if not current_list:
+            return ''
+        
+        # 检查是否到达最后一张
+        if self.index >= len(current_list) - 1:
+            # 到达最后一张
+            if self.slideshow_loop:
+                # 循环播放：回到第一张
+                self.index = 0
+                self.has_played_once = True
+                print("循环播放：回到第一张图片")
+            else:
+                # 不循环：停留在最后一张，停止自动播放
+                if self.is_auto_playing:
+                    self.stop_auto_play()
+                    print("播放完成，已停止自动播放")
+                return current_list[self.index]  # 返回最后一张
         else:
-            self.index = (self.index + 1) % len(self.images)
+            # 未到达最后一张，继续下一张
+            self.index += 1
+            # 检查是否已经播放过一次
+            if self.index == len(current_list) - 1:
+                self.has_played_once = True
         
         current_image = self.get_current_image()
         if self.on_image_changed_callback:
@@ -70,12 +91,22 @@ class SlideshowService:
             self.stop_auto_play()
             self.start_auto_play()
 
+    def set_slideshow_loop(self, loop: bool):
+        """設定循環播放狀態"""
+        self.slideshow_loop = loop
+        print(f"循环播放设置已更新: {'开启' if loop else '关闭'}")
+
+    def get_slideshow_loop(self) -> bool:
+        """獲取循環播放狀態"""
+        return self.slideshow_loop
+
     def start_auto_play(self):
         """開始自動播放"""
         if self.is_auto_playing:
             return
         
         self.is_auto_playing = True
+        self.has_played_once = False  # 重置播放状态
         self.auto_play_thread = threading.Thread(target=self._auto_play_loop, daemon=True)
         self.auto_play_thread.start()
 
@@ -91,7 +122,25 @@ class SlideshowService:
         while self.is_auto_playing:
             time.sleep(self.auto_play_interval)
             if self.is_auto_playing:  # 再次檢查，避免在sleep期間被停止
-                self.next_image()
+                # 检查是否应该继续播放
+                current_list = self.custom_playlist if self.custom_playlist else self.images
+                if not current_list:
+                    continue
+                
+                # 如果到达最后一张且不循环，停止自动播放
+                if self.index >= len(current_list) - 1 and not self.slideshow_loop:
+                    if self.has_played_once:
+                        print("播放完成，停止自动播放")
+                        # 只设置标志，不调用stop_auto_play避免线程join错误
+                        self.is_auto_playing = False
+                        break
+                    else:
+                        # 第一次到达最后一张，标记为已播放一次
+                        self.has_played_once = True
+                        self.next_image()
+                else:
+                    # 继续播放下一张
+                    self.next_image()
 
     def set_custom_playlist(self, image_paths: List[str]):
         """設定自定義播放列表

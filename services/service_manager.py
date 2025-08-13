@@ -16,7 +16,7 @@ class ServiceManager:
             self.repository = ImageRepository(IMAGES_DIR)
             self.slideshow_service = SlideshowService(self.repository)
             self.slideshow_interval = 3.0  # 默认间隔时间
-            self.slideshow_loop = False    # 默认不循环
+            self.slideshow_loop = True     # 默认开启循环
             self.brightness = 50           # 默认亮度
             self.initialized = True
     
@@ -37,6 +37,8 @@ class ServiceManager:
     def set_slideshow_loop(self, loop: bool):
         """设置幻灯片循环播放"""
         self.slideshow_loop = loop
+        # 更新幻灯片服务的循环播放设置
+        self.slideshow_service.set_slideshow_loop(loop)
     
     def get_slideshow_loop(self) -> bool:
         """获取幻灯片循环播放设置"""
