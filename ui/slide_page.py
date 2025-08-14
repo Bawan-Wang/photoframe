@@ -19,7 +19,7 @@ class SlideshowScreen(Screen):
 
         self.img_widget = Image(
             allow_stretch=True,
-            fit_mode='cover',
+            keep_ratio=False,
             size_hint=(1, 1),
             pos_hint={'center_x': 0.5, 'center_y': 0.5}
         )
