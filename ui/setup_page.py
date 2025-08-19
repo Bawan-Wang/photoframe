@@ -93,7 +93,9 @@ class SetupScreen(Screen):
         settings = self.service_manager.get_all_settings()
         self.slideshow_interval = settings['slideshow_interval']
         self.slideshow_loop = settings['slideshow_loop']
-        self.brightness = settings['brightness']
+        
+        # 讀取系統實際亮度值並轉換為 0-100 範圍
+        self.brightness = self.get_system_brightness_percent()
         
         # 更新UI显示
         if hasattr(self, 'interval_input'):
@@ -350,10 +352,74 @@ class SetupScreen(Screen):
     
     def on_brightness_change(self, instance, value):
         """處理亮度變更"""
-        self.brightness = int(value)
-        self.brightness_label.text = str(self.brightness)
-        # 实时更新服务管理器中的设置
-        self.service_manager.set_brightness(int(value))
+        try:
+            # 確保亮度值在 0-100 範圍內
+            brightness_value = max(0, min(100, int(value)))
+            
+            # 更新UI顯示
+            self.brightness = brightness_value
+            self.brightness_label.text = str(brightness_value)
+            
+            # 通過 sysfs 控制硬體亮度
+            self.set_system_brightness(brightness_value)
+            
+            # 更新服務管理器中的設置
+            self.service_manager.set_brightness(brightness_value)
+            
+            print(f"亮度已調整為: {brightness_value}%")
+            
+        except Exception as e:
+            print(f"調整亮度時發生錯誤: {e}")
+    
+    def get_system_brightness_percent(self):
+        """從系統讀取當前亮度值並轉換為 0-100 百分比"""
+        try:
+            brightness_file = '/sys/class/backlight/11-0045/brightness'
+            
+            if os.path.exists(brightness_file):
+                with open(brightness_file, 'r') as f:
+                    current_brightness = int(f.read().strip())
+                
+                # 將 8-31 範圍轉換為 0-100 百分比
+                # 反向映射：8 -> 0%, 31 -> 100%
+                if current_brightness <= 8:
+                    return 0
+                elif current_brightness >= 31:
+                    return 100
+                else:
+                    percent = int(((current_brightness - 8) / (31 - 8)) * 100)
+                    return percent
+            else:
+                print(f"警告: 亮度控制文件不存在: {brightness_file}")
+                return 50  # 預設值
+                
+        except Exception as e:
+            print(f"讀取系統亮度時發生錯誤: {e}")
+            return 50  # 預設值
+    
+    def set_system_brightness(self, brightness_percent):
+        """通過 sysfs 設置系統亮度"""
+        try:
+            # 將 0-100 的百分比映射到 8-31 範圍，避免螢幕太黑
+            # 使用線性映射：0% -> 8, 100% -> 31
+            brightness_value = int(8 + (brightness_percent / 100.0) * (31 - 8))
+            
+            # 使用你系統中實際存在的亮度控制文件路徑
+            brightness_file = '/sys/class/backlight/11-0045/brightness'
+            
+            if os.path.exists(brightness_file):
+                with open(brightness_file, 'w') as f:
+                    f.write(str(brightness_value))
+                print(f"已通過 sysfs 設置亮度: {brightness_percent}% -> {brightness_value}/31 (映射範圍: 8-31)")
+            else:
+                print(f"警告: 亮度控制文件不存在: {brightness_file}")
+                print("請確認 Raspberry Pi 硬體配置或使用其他亮度控制方法")
+                
+        except PermissionError:
+            print("權限不足，無法寫入亮度控制文件")
+            print("請嘗試使用 sudo 運行程序或將用戶加入 video 組")
+        except Exception as e:
+            print(f"設置系統亮度時發生錯誤: {e}")
     
     def goto_home(self, instance):
         """返回主頁"""
