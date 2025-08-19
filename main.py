@@ -9,6 +9,13 @@ from services.service_manager import ServiceManager
 
 class MainApp(App):
     def build(self):
+        # 設定全螢幕模式
+        Window.fullscreen = 'auto'  # 自動全螢幕
+        # 或者使用 'auto' 讓系統決定，或使用 True 強制全螢幕
+        
+        # 隱藏游標（可選）
+        Window.show_cursor = False
+        
         # 初始化服务管理器
         self.service_manager = ServiceManager()
         
