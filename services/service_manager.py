@@ -12,7 +12,15 @@ class ServiceManager:
     
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            IMAGES_DIR = os.path.join(os.path.dirname(__file__), '../images')
+            # 使用隨身碟路徑（無空格）
+            IMAGES_DIR = '/media/jh-pi/ESD-USB/images'
+            # 如果隨身碟不存在，則使用本地路徑作為備用
+            if not os.path.exists(IMAGES_DIR):
+                IMAGES_DIR = os.path.join(os.path.dirname(__file__), '../images')
+                print(f"隨身碟路徑不存在，使用本地路徑: {IMAGES_DIR}")
+            else:
+                print(f"使用隨身碟路徑: {IMAGES_DIR}")
+            
             self.repository = ImageRepository(IMAGES_DIR)
             self.slideshow_service = SlideshowService(self.repository)
             self.slideshow_interval = 3.0  # 默认间隔时间

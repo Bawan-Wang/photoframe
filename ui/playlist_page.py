@@ -12,6 +12,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.graphics import Color, RoundedRectangle
 from repositories.image_repository import ImageRepository
 from ui.main_page import RoundedButton
+from services.service_manager import ServiceManager
 
 class SmallRoundedButton(Button):
     def __init__(self, **kwargs):
@@ -34,13 +35,14 @@ class SmallRoundedButton(Button):
         self.bg.pos = self.pos
         self.bg.size = self.size
 
-IMAGES_DIR = os.path.join(os.path.dirname(__file__), '../images')
 CHECKBOX_STATE_FILE = os.path.join(os.path.dirname(__file__), '../checkbox_state.json')
 
 class PlaylistScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.repository = ImageRepository(IMAGES_DIR)
+        # 使用 ServiceManager 來獲取圖片路徑
+        self.service_manager = ServiceManager()
+        self.repository = self.service_manager.repository
         self.selected = set()
         self.all_checkbox = None
         self.image_checkboxes = []
@@ -69,6 +71,56 @@ class PlaylistScreen(Screen):
         except Exception as e:
             print(f"保存勾選框狀態失敗: {e}")
 
+    def convert_old_paths_to_new(self, state_data):
+        """將舊的本地路徑轉換為新的隨身碟路徑"""
+        try:
+            old_base = os.path.join(os.path.dirname(__file__), '../images')
+            new_base = '/media/jh-pi/ESD-USB/images'
+            
+            # 檢查隨身碟路徑是否存在
+            if not os.path.exists(new_base):
+                return state_data
+            
+            converted_data = state_data.copy()
+            
+            # 轉換 selected_images 中的路徑
+            if 'selected_images' in converted_data:
+                converted_selected = []
+                for old_path in converted_data['selected_images']:
+                    if old_path.startswith(old_base):
+                        # 提取文件名
+                        filename = os.path.basename(old_path)
+                        new_path = os.path.join(new_base, filename)
+                        # 檢查新路徑是否存在
+                        if os.path.exists(new_path):
+                            converted_selected.append(new_path)
+                        else:
+                            print(f"圖片文件不存在: {new_path}")
+                    else:
+                        converted_selected.append(old_path)
+                converted_data['selected_images'] = converted_selected
+            
+            # 轉換 image_states 中的路徑
+            if 'image_states' in converted_data:
+                converted_states = {}
+                for old_path, state in converted_data['image_states'].items():
+                    if old_path.startswith(old_base):
+                        filename = os.path.basename(old_path)
+                        new_path = os.path.join(new_base, filename)
+                        if os.path.exists(new_path):
+                            converted_states[new_path] = state
+                        else:
+                            print(f"圖片文件不存在: {new_path}")
+                    else:
+                        converted_states[old_path] = state
+                converted_data['image_states'] = converted_states
+            
+            return converted_data
+            
+        except Exception as e:
+            print(f"路徑轉換失敗: {e}")
+            return state_data
+    
     def load_checkbox_state(self):
         """從文件加載勾選框狀態"""
         try:
@@ -77,8 +129,11 @@ class PlaylistScreen(Screen):
                 
             with open(CHECKBOX_STATE_FILE, 'r', encoding='utf-8') as f:
                 state_data = json.load(f)
-                
-            return state_data
+            
+            # 轉換舊路徑為新路徑
+            converted_state = self.convert_old_paths_to_new(state_data)
+            
+            return converted_state
         except Exception as e:
             print(f"加載勾選框狀態失敗: {e}")
             return None

@@ -22,6 +22,10 @@ class SlideshowService:
         # 如果使用自定義播放列表，需要重新驗證索引
         if self.custom_playlist:
             self._validate_custom_playlist()
+    
+
+    
+
 
     def get_current_image(self):
         if not self.images:
@@ -82,7 +86,7 @@ class SlideshowService:
         current_image = self.get_current_image()
         if self.on_image_changed_callback:
             self.on_image_changed_callback(current_image)
-        return self.get_current_image()
+        return current_image
 
     def set_auto_play_interval(self, interval: float):
         """設定自動播放的間隔時間（秒）"""
