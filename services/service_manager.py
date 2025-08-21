@@ -22,6 +22,12 @@ class ServiceManager:
                 print(f"使用隨身碟路徑: {IMAGES_DIR}")
             
             self.repository = ImageRepository(IMAGES_DIR)
+            
+            # 在初始化時就完成圖片處理，避免後續重複處理
+            print("正在初始化圖片服務...")
+            self.repository.get_image_files()  # 這會觸發縮圖創建
+            print("圖片服務初始化完成！")
+            
             self.slideshow_service = SlideshowService(self.repository)
             self.slideshow_interval = 3.0  # 默认间隔时间
             self.slideshow_loop = True     # 默认开启循环
