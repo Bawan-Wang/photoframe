@@ -25,6 +25,7 @@ class MainApp(App):
         sm.add_widget(SlideshowScreen(name='slideshow'))
         sm.add_widget(PlaylistScreen(name='playlist'))
         sm.add_widget(SetupScreen(name='setup'))
+        sm.current = 'slideshow'
         return sm
 
 if __name__ == '__main__':
