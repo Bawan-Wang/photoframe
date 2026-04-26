@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Runtime/user data (not source)
+checkbox_state.json
+images/
+thumbnails/
+test_images/
+test_thumbnails/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
