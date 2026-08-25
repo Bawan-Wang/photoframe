@@ -14,3 +14,8 @@ test_thumbnails/
 .vscode/
 .idea/
 .DS_Store
+
+# 刻意不進版控：這份檔案整份都是註解，沒有任何可安裝的行。
+# 保留在磁碟上當備忘，但不進 repo——避免有人 pip install -r 拿到空結果。
+# 真正的安裝步驟在 INSTALL.md（一律走 apt）。
+requirements.txt
