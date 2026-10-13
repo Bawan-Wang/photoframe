@@ -75,10 +75,11 @@ class PlaylistScreen(Screen):
         """將舊的本地路徑轉換為新的隨身碟路徑"""
         try:
             old_base = os.path.join(os.path.dirname(__file__), '../images')
-            new_base = '/media/jh-pi/ESD-USB/images'
+            new_base = self.repository.images_dir
             
-            # 檢查隨身碟路徑是否存在
-            if not os.path.exists(new_base):
+            # 檢查隨身碟路徑是否存在（沒有隨身碟時 images_dir 就是本地路徑）
+            same_as_local = os.path.normpath(new_base) == os.path.normpath(old_base)
+            if same_as_local or not os.path.exists(new_base):
                 return state_data
             
             converted_data = state_data.copy()

@@ -2,10 +2,10 @@ import os
 from PIL import Image as PILImage
 
 class ImageRepository:
-    def __init__(self, images_dir):
+    def __init__(self, images_dir, thumbnails_dir=None):
         self.images_dir = images_dir
         # 創建縮圖目錄
-        self.thumbnails_dir = os.path.join(os.path.dirname(images_dir), 'thumbnails')
+        self.thumbnails_dir = thumbnails_dir or os.path.join(os.path.dirname(images_dir), 'thumbnails')
         self._ensure_thumbnails_dir()
         
         # 縮圖設定

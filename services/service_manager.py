@@ -1,6 +1,35 @@
 import os
+import getpass
 from services.slideshow_service import SlideshowService
 from repositories.image_repository import ImageRepository
+
+IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+
+
+def find_usb_images_dir():
+    """在 /media/<目前使用者>/ 底下找隨身碟的照片資料夾，找不到回傳 None。
+
+    隨身碟裡有 images/ 子資料夾就用它，否則用隨身碟最上層（要有照片才算）。
+    """
+    media_root = os.path.join('/media', getpass.getuser())
+    try:
+        mounts = sorted(os.listdir(media_root))
+    except OSError:
+        return None
+    for name in mounts:
+        mount = os.path.join(media_root, name)
+        if not os.path.ismount(mount):
+            continue
+        images = os.path.join(mount, 'images')
+        if os.path.isdir(images):
+            return images
+        try:
+            if any(f.lower().endswith(IMAGE_EXTS) for f in os.listdir(mount)):
+                return mount
+        except OSError:
+            continue
+    return None
+
 
 class ServiceManager:
     _instance = None
@@ -12,16 +41,20 @@ class ServiceManager:
     
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            # 使用隨身碟路徑（無空格）
-            IMAGES_DIR = '/media/jh-pi/ESD-USB/images'
+            # 使用隨身碟路徑（依目前使用者自動尋找，不寫死使用者或隨身碟名稱）
+            IMAGES_DIR = find_usb_images_dir()
             # 如果隨身碟不存在，則使用本地路徑作為備用
-            if not os.path.exists(IMAGES_DIR):
+            if IMAGES_DIR is None:
                 IMAGES_DIR = os.path.join(os.path.dirname(__file__), '../images')
                 print(f"隨身碟路徑不存在，使用本地路徑: {IMAGES_DIR}")
+                thumbnails_dir = os.path.join(os.path.dirname(IMAGES_DIR), 'thumbnails')
             else:
                 print(f"使用隨身碟路徑: {IMAGES_DIR}")
-            
-            self.repository = ImageRepository(IMAGES_DIR)
+                # 縮圖放在隨身碟根目錄；照片就在根目錄時，上一層 /media/<user> 不可寫
+                mount = IMAGES_DIR if os.path.ismount(IMAGES_DIR) else os.path.dirname(IMAGES_DIR)
+                thumbnails_dir = os.path.join(mount, 'thumbnails')
+
+            self.repository = ImageRepository(IMAGES_DIR, thumbnails_dir)
             
             # 在初始化時就完成圖片處理，避免後續重複處理
             print("正在初始化圖片服務...")
