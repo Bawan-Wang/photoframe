@@ -174,8 +174,21 @@ class SlideshowService:
                     continue
             if not self._should_advance():
                 continue
+            if self._waiting_for_more():
+                # 第一次打開時照片還在背景處理，最後一張不是真的最後一張
+                self._item_started = time.monotonic()
+                continue
             # 不循環時 next_image() 在最後一張會自己停止自動播放
             self.next_image()
+
+    def _waiting_for_more(self):
+        """不循環、停在目前最後一張，但 repository 還有照片在處理中"""
+        if self.slideshow_loop or self.custom_playlist:
+            return False
+        with self._lock:
+            at_last = self.index >= len(self.images) - 1
+        has_pending = getattr(self.image_repository, 'has_pending_jobs', None)
+        return at_last and bool(has_pending and has_pending())
 
     def set_custom_playlist(self, image_paths: List[str]):
         """設定自定義播放列表

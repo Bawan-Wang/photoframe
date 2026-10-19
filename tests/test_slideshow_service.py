@@ -116,3 +116,34 @@ def test_concurrent_add_media_while_playing(thread_errors):
         svc.stop_auto_play()
     assert len(svc.images) == 51
     assert thread_errors == []
+
+
+class PendingRepo(FakeRepo):
+    def __init__(self, files):
+        super().__init__(files)
+        self.pending = True
+
+    def has_pending_jobs(self):
+        return self.pending
+
+
+def test_no_loop_waits_at_last_while_photos_are_still_processing(thread_errors):
+    # 第一次打開、照片還在背景處理時，清單只有一張；不循環也不能就此停止
+    repo = PendingRepo(['a'])
+    svc = SlideshowService(repo, auto_play_interval=0.05)
+    svc.set_slideshow_loop(False)
+    seen = []
+    svc.set_image_changed_callback(seen.append)
+    svc.start_auto_play()
+    try:
+        time.sleep(0.3)
+        assert svc.is_auto_playing
+        repo.files = ['a', 'b']
+        svc.add_media('b')
+        repo.pending = False
+        assert _wait_until(lambda: 'b' in seen)
+        assert _wait_until(lambda: not svc.is_auto_playing)
+    finally:
+        svc.stop_auto_play()
+    assert svc.get_current_image() == 'b'
+    assert thread_errors == []
