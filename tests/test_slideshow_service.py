@@ -123,7 +123,7 @@ class PendingRepo(FakeRepo):
         super().__init__(files)
         self.pending = True
 
-    def has_pending_jobs(self):
+    def expects_more_items(self):
         return self.pending
 
 
@@ -147,3 +147,34 @@ def test_no_loop_waits_at_last_while_photos_are_still_processing(thread_errors):
         svc.stop_auto_play()
     assert svc.get_current_image() == 'b'
     assert thread_errors == []
+
+
+def test_video_waits_for_finish_then_advances():
+    svc = SlideshowService(FakeRepo(['a.mp4', 'b.jpg']), auto_play_interval=0.05)
+    svc.set_slideshow_loop(True)
+    seen = []
+    svc.set_image_changed_callback(seen.append)
+    svc.start_auto_play()
+    try:
+        time.sleep(0.4)
+        assert seen == []  # 影片還沒播完，不切換
+        start = time.monotonic()
+        svc.notify_video_finished('a.mp4')
+        assert _wait_until(lambda: seen[:1] == ['b.jpg'])
+        assert time.monotonic() - start < 0.2
+    finally:
+        svc.stop_auto_play()
+
+
+def test_stale_video_finished_event_is_ignored():
+    svc = SlideshowService(FakeRepo(['a.mp4', 'b.mp4']), auto_play_interval=0.05)
+    svc.set_slideshow_loop(True)
+    seen = []
+    svc.set_image_changed_callback(seen.append)
+    svc.start_auto_play()
+    try:
+        svc.notify_video_finished('b.mp4')  # 不是目前項目
+        time.sleep(0.3)
+        assert seen == []
+    finally:
+        svc.stop_auto_play()

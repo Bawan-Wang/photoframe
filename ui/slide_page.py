@@ -10,6 +10,13 @@ from services.service_manager import ServiceManager
 
 IMAGES_DIR = os.path.join(os.path.dirname(__file__), '../images')
 
+# 影片音量（0～1）。預設靜音：麥克風與喇叭是同一個 USB 裝置，影片有聲音時
+# 喚醒詞「兔兔」會被蓋掉（042B 實測 5 次全失敗；靜音時一次就成功）。
+# 要讓影片有聲音，需先做回音消除（另開計畫）
+VIDEO_VOLUME = 0
+# 影片在這段時間內沒有載入（壞檔、改了副檔名）就視為播完、跳過
+VIDEO_LOAD_TIMEOUT = 10
+
 class SlideshowScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -18,6 +25,9 @@ class SlideshowScreen(Screen):
         self.selected_images = None  # 存儲選中的圖片列表
 
         layout = FloatLayout()
+        self.media_layout = layout
+        self._video = None
+        self._video_watchdog = None
         # 照片保持比例，留白處畫黑底（Window.clearcolor 是淺灰色）
         with layout.canvas.before:
             Color(0, 0, 0, 1)
@@ -143,6 +153,7 @@ class SlideshowScreen(Screen):
     def show_media(self, path):
         """顯示一項媒體；path 為空時顯示「準備中」或「沒有照片」"""
         if not path:
+            self._stop_video()
             if self.service_manager.repository.has_pending_jobs():
                 self.preparing_label.text = 'Preparing photos...'
             else:
@@ -151,10 +162,66 @@ class SlideshowScreen(Screen):
             self.preparing_label.opacity = 1
             return
         self.preparing_label.opacity = 0
+        if self.service_manager.repository.is_video(path):
+            self._play_video(path)
+            return
+        self._stop_video()
         self.img_widget.opacity = 1
         self.img_widget.source = path
         # 強制重新加載圖片
         self.img_widget.reload()
+
+    def _play_video(self, path):
+        # 延遲載入：沒有影片時不必初始化 gstreamer
+        from kivy.uix.video import Video
+
+        self._stop_video()
+        self.img_widget.opacity = 0
+        # 每支影片都新建一個 Video；封面當 preview（沒有 preview 時 Kivy 會把
+        # 影片當圖片讀，印出無害但誤導的 "Error loading"）
+        video = Video(
+            preview=self.service_manager.repository.get_thumbnail(path),
+            volume=VIDEO_VOLUME,
+            options={'eos': 'stop'},
+            allow_stretch=True,
+            keep_ratio=True,
+            size_hint=(1, 1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+        )
+        video.bind(eos=lambda instance, value: self._on_video_eos(instance, value, path))
+        # 放在照片之上、「準備中」文字與按鈕層之下
+        index = self.media_layout.children.index(self.img_widget)
+        self.media_layout.add_widget(video, index=index)
+        self._video = video
+        # 建構完成之後才設 source：在建構子裡傳 source 時，source 會比 preview
+        # 先生效，Kivy 會把 mp4 當成圖片去載入而報錯
+        video.source = path
+        video.state = 'play'
+        self._video_watchdog = Clock.schedule_once(
+            lambda dt: self._check_video_loaded(video, path), VIDEO_LOAD_TIMEOUT)
+
+    def _on_video_eos(self, video, value, path):
+        if value and video is self._video:
+            self.service.notify_video_finished(path)
+
+    def _check_video_loaded(self, video, path):
+        """看門狗：只看 loaded。Kivy 2.1 載入前就把 duration 設成 1.0，不能拿來判斷"""
+        self._video_watchdog = None
+        if video is self._video and not video.loaded:
+            print(f"影片 {VIDEO_LOAD_TIMEOUT} 秒內沒有載入，跳過: {path}")
+            self.service.notify_video_finished(path)
+
+    def _stop_video(self):
+        if self._video_watchdog is not None:
+            self._video_watchdog.cancel()
+            self._video_watchdog = None
+        video = self._video
+        if video is None:
+            return
+        self._video = None
+        video.state = 'stop'
+        video.unload()
+        self.media_layout.remove_widget(video)
 
     def set_selected_images(self, selected_images):
         """設置選中的圖片列表"""
@@ -198,6 +265,7 @@ class SlideshowScreen(Screen):
         """離開頁面時停止自動播放"""
         # 停止自動播放
         self.service.stop_auto_play()
+        self._stop_video()
         
         # 離開畫面時取消計時器
         if self._ui_timer:

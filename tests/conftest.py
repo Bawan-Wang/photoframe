@@ -4,6 +4,7 @@
 """
 import os
 import shutil
+import subprocess
 import sys
 
 import pytest
@@ -35,3 +36,38 @@ def make_exif_rotated_jpeg(path, size=(400, 200)):
 
 def set_mtime(path, mtime):
     os.utime(path, (mtime, mtime))
+
+
+needs_ffmpeg = pytest.mark.skipif(
+    shutil.which('ffmpeg') is None or shutil.which('ffprobe') is None,
+    reason='需要 ffmpeg／ffprobe',
+)
+
+
+def make_video(path, size=(320, 240), duration=1.0, fps=30, vcodec='libx264',
+               pix_fmt='yuv420p', audio='aac', extra=()):
+    """用 lavfi 的 testsrc／sine 產生測試影片。audio=None 表示沒有音軌。"""
+    w, h = size
+    args = ['ffmpeg', '-y', '-v', 'error',
+            '-f', 'lavfi', '-i', f'testsrc=size={w}x{h}:rate={fps}:duration={duration}']
+    if audio:
+        args += ['-f', 'lavfi', '-i', f'sine=frequency=440:duration={duration}']
+    args += ['-c:v', vcodec, '-pix_fmt', pix_fmt]
+    if vcodec == 'libx265':
+        args += ['-x265-params', 'log-level=error']
+    if audio:
+        args += ['-c:a', audio]
+    args += list(extra) + ['-shortest', path]
+    subprocess.run(args, check=True, capture_output=True)
+    return path
+
+
+def make_rotated_video(path, size=(320, 240)):
+    """帶 rotate=90 標記的影片。ffmpeg 5.1 沒有 -display_rotation（6.0 才有），
+    改用 -metadata:s:v:0 rotate=90（ffprobe 讀得到 rotation）。"""
+    plain = path + '.plain.mp4'
+    make_video(plain, size)
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', plain, '-c', 'copy',
+                    '-metadata:s:v:0', 'rotate=90', path], check=True, capture_output=True)
+    os.remove(plain)
+    return path
