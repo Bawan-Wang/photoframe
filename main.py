@@ -87,6 +87,11 @@ class MainApp(App):
             pass
 
     def on_stop(self):
+        # Stop background photo processing (exec-plan 042A).
+        try:
+            self.service_manager.repository.shutdown()
+        except Exception:
+            pass
         # Belt-and-braces cleanup if killed without going through _graceful_exit.
         try:
             READY_FILE.unlink(missing_ok=True)

@@ -2,8 +2,7 @@ import os
 import getpass
 from services.slideshow_service import SlideshowService
 from repositories.image_repository import ImageRepository
-
-IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+from services.media_prep import IMAGE_EXTS
 
 
 def find_usb_images_dir():
@@ -56,12 +55,13 @@ class ServiceManager:
 
             self.repository = ImageRepository(IMAGES_DIR, thumbnails_dir)
             
-            # 在初始化時就完成圖片處理，避免後續重複處理
+            # 這裡只做 stat；需要處理的照片在背景做，做好一張就經由 listener 加進輪播
             print("正在初始化圖片服務...")
-            self.repository.get_image_files()  # 這會觸發縮圖創建
+            self.repository.get_image_files()
             print("圖片服務初始化完成！")
             
             self.slideshow_service = SlideshowService(self.repository)
+            self.repository.add_listener(self.slideshow_service.add_media)
             self.slideshow_interval = 3.0  # 默认间隔时间
             self.slideshow_loop = True     # 默认开启循环
             self.brightness = 50           # 默认亮度

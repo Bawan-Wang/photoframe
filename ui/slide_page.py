@@ -3,6 +3,8 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 from kivy.uix.button import Button
+from kivy.uix.label import Label
+from kivy.graphics import Color, Rectangle
 from kivy.clock import Clock
 from services.service_manager import ServiceManager
 
@@ -16,14 +18,31 @@ class SlideshowScreen(Screen):
         self.selected_images = None  # 存儲選中的圖片列表
 
         layout = FloatLayout()
+        # 照片保持比例，留白處畫黑底（Window.clearcolor 是淺灰色）
+        with layout.canvas.before:
+            Color(0, 0, 0, 1)
+            self._bg_rect = Rectangle(pos=layout.pos, size=layout.size)
+        layout.bind(pos=self._update_bg, size=self._update_bg)
 
+        # Kivy 2.1 沒有 fit_mode（2.2 才有），用 keep_ratio
         self.img_widget = Image(
             allow_stretch=True,
-            keep_ratio=False,
+            keep_ratio=True,
             size_hint=(1, 1),
             pos_hint={'center_x': 0.5, 'center_y': 0.5}
         )
         layout.add_widget(self.img_widget)
+
+        # 第一次打開、照片都還在背景處理時顯示
+        self.preparing_label = Label(
+            text='Preparing photos...',
+            font_size='24sp',
+            color=(1, 1, 1, 1),
+            size_hint=(1, 1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            opacity=0
+        )
+        layout.add_widget(self.preparing_label)
 
         # --- UI container for all buttons ---
         from kivy.uix.widget import Widget
@@ -117,6 +136,26 @@ class SlideshowScreen(Screen):
         # 初始化時隱藏UI
         self.hide_ui()
 
+    def _update_bg(self, instance, value):
+        self._bg_rect.pos = instance.pos
+        self._bg_rect.size = instance.size
+
+    def show_media(self, path):
+        """顯示一項媒體；path 為空時顯示「準備中」或「沒有照片」"""
+        if not path:
+            if self.service_manager.repository.has_pending_jobs():
+                self.preparing_label.text = 'Preparing photos...'
+            else:
+                self.preparing_label.text = 'No photos'
+            self.img_widget.opacity = 0
+            self.preparing_label.opacity = 1
+            return
+        self.preparing_label.opacity = 0
+        self.img_widget.opacity = 1
+        self.img_widget.source = path
+        # 強制重新加載圖片
+        self.img_widget.reload()
+
     def set_selected_images(self, selected_images):
         """設置選中的圖片列表"""
         self.selected_images = selected_images
@@ -147,8 +186,7 @@ class SlideshowScreen(Screen):
         # 顯示當前圖片
         current_image = self.service.get_current_image()
         print(f"Current image: {current_image}")
-        if current_image:
-            self.img_widget.source = current_image
+        self.show_media(current_image)
         
         # 啟動自動播放
         self.service.start_auto_play()
@@ -175,9 +213,7 @@ class SlideshowScreen(Screen):
         """在主線程中安全地更新圖片"""
         try:
             if image_path and os.path.exists(image_path):
-                self.img_widget.source = image_path
-                # 強制重新加載圖片
-                self.img_widget.reload()
+                self.show_media(image_path)
             else:
                 print(f"圖片路徑不存在或無效: {image_path}")
         except Exception as e:
@@ -186,20 +222,16 @@ class SlideshowScreen(Screen):
     def next_image(self, instance):
         # 手動切換圖片時停止自動播放
         self.service.stop_auto_play()
-        next_img = self.service.next_image()
-        if next_img:
-            self.img_widget.source = next_img
-            self.img_widget.reload()
+        # 畫面更新只交給 service 的 callback，不在這裡再設一次 source
+        self.service.next_image()
         # 切換圖片時也重置UI計時器
         self.reset_ui_timer()
 
     def prev_image(self, instance):
         # 手動切換圖片時停止自動播放
         self.service.stop_auto_play()
-        prev_img = self.service.prev_image()
-        if prev_img:
-            self.img_widget.source = prev_img
-            self.img_widget.reload()
+        # 畫面更新只交給 service 的 callback，不在這裡再設一次 source
+        self.service.prev_image()
         # 切換圖片時也重置UI計時器
         self.reset_ui_timer()
 
