@@ -2,13 +2,13 @@ import os
 import getpass
 from services.slideshow_service import SlideshowService
 from repositories.image_repository import ImageRepository
-from services.media_prep import IMAGE_EXTS
+from services.media_prep import MEDIA_EXTS
 
 
 def find_usb_images_dir():
     """在 /media/<目前使用者>/ 底下找隨身碟的照片資料夾，找不到回傳 None。
 
-    隨身碟裡有 images/ 子資料夾就用它，否則用隨身碟最上層（要有照片才算）。
+    隨身碟裡有 images/ 子資料夾就用它，否則用隨身碟最上層（要有照片或影片才算）。
     """
     media_root = os.path.join('/media', getpass.getuser())
     try:
@@ -23,7 +23,7 @@ def find_usb_images_dir():
         if os.path.isdir(images):
             return images
         try:
-            if any(f.lower().endswith(IMAGE_EXTS) for f in os.listdir(mount)):
+            if any(f.lower().endswith(MEDIA_EXTS) for f in os.listdir(mount)):
                 return mount
         except OSError:
             continue

@@ -2,6 +2,11 @@ import threading
 import time
 from typing import List, Optional
 
+from services.media_prep import is_video
+
+# 影片要播完才切換；eos 事件遺失時的保險上限
+MAX_VIDEO_WAIT = 30 * 60
+
 class SlideshowService:
     def __init__(self, image_repository, auto_play_interval: float = 3.0):
         self.image_repository = image_repository
@@ -20,6 +25,7 @@ class SlideshowService:
         # 自動播放用 Event 等待而不是 sleep，stop 時才能立即喚醒
         self._wake = threading.Event()
         self._item_started = time.monotonic()
+        self._video_done = False
 
     def refresh_images(self):
         with self._lock:
@@ -44,6 +50,7 @@ class SlideshowService:
         """重設這一項的開始時間並通知 UI（callback 在鎖外呼叫）"""
         with self._lock:
             self._item_started = time.monotonic()
+            self._video_done = False
             current_image = self.get_current_image()
         if self.on_image_changed_callback:
             self.on_image_changed_callback(current_image)
@@ -152,12 +159,31 @@ class SlideshowService:
         if thread and thread is not threading.current_thread():
             thread.join(timeout=1.0)
 
+    def _current_is_playing_video(self):
+        current = self.get_current_image()
+        return bool(current) and is_video(current) and not self._video_done
+
     def _wait_seconds(self):
+        if self._current_is_playing_video():
+            # 影片播完會由 notify_video_finished 喚醒；這裡只是保險的輪詢間隔
+            return 1.0
         elapsed = time.monotonic() - self._item_started
         return max(0.05, self.auto_play_interval - elapsed)
 
     def _should_advance(self):
-        return time.monotonic() - self._item_started >= self.auto_play_interval
+        elapsed = time.monotonic() - self._item_started
+        current = self.get_current_image()
+        if current and is_video(current):
+            return self._video_done or elapsed >= MAX_VIDEO_WAIT
+        return elapsed >= self.auto_play_interval
+
+    def notify_video_finished(self, path=None):
+        """UI 的影片播完（或載入逾時被跳過）時呼叫；不是目前項目的舊事件會被忽略"""
+        with self._lock:
+            if path is not None and path != self.get_current_image():
+                return
+            self._video_done = True
+        self._wake.set()
 
     def _auto_play_loop(self):
         """自動播放循環"""
@@ -187,8 +213,8 @@ class SlideshowService:
             return False
         with self._lock:
             at_last = self.index >= len(self.images) - 1
-        has_pending = getattr(self.image_repository, 'has_pending_jobs', None)
-        return at_last and bool(has_pending and has_pending())
+        expects_more = getattr(self.image_repository, 'expects_more_items', None)
+        return at_last and bool(expects_more and expects_more())
 
     def set_custom_playlist(self, image_paths: List[str]):
         """設定自定義播放列表

@@ -9,10 +9,25 @@ from kivy.uix.checkbox import CheckBox
 from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.floatlayout import FloatLayout
-from kivy.graphics import Color, RoundedRectangle
+from kivy.graphics import Color, Ellipse, RoundedRectangle
 from repositories.image_repository import ImageRepository
 from ui.main_page import RoundedButton
 from services.service_manager import ServiceManager
+
+class VideoBadge(Label):
+    """影片縮圖中央的播放標記：半透明黑色圓底，封面再亮也看得到"""
+    def __init__(self, **kwargs):
+        super().__init__(text='>', bold=True, font_size='22sp', color=(1, 1, 1, 1),
+                         size_hint=(None, None), size=(40, 40), **kwargs)
+        with self.canvas.before:
+            Color(0, 0, 0, 0.55)
+            self.bg = Ellipse(pos=self.pos, size=self.size)
+        self.bind(pos=self.update_bg, size=self.update_bg)
+
+    def update_bg(self, *args):
+        self.bg.pos = self.pos
+        self.bg.size = self.size
+
 
 class SmallRoundedButton(Button):
     def __init__(self, **kwargs):
@@ -244,12 +259,18 @@ class PlaylistScreen(Screen):
             cell = BoxLayout(orientation='vertical', size_hint_y=None, height=180)
             float_layout = FloatLayout(size_hint=(1, None), height=100)
             
+            is_video = self.repository.is_video(img_path)
             thumb_path = self.repository.get_thumbnail(img_path)
-            if os.path.exists(thumb_path):
+            if thumb_path and os.path.exists(thumb_path):
                 img = Image(source=thumb_path, size_hint=(0.85, 1), pos_hint={'x': 0.15, 'y': 0}, allow_stretch=True, keep_ratio=True)
             else:
-                img = Label(text='No Image', size_hint=(0.85, 1), pos_hint={'x': 0.15, 'y': 0})
+                # 影片的封面還在背景製作中
+                img = Label(text='Video' if is_video else 'No Image', size_hint=(0.85, 1), pos_hint={'x': 0.15, 'y': 0}, color=(0,0,0,1))
             float_layout.add_widget(img)
+            if is_video:
+                # 影片標記
+                # 縮圖區是 x 0.15～1.0，中心在 0.575
+                float_layout.add_widget(VideoBadge(pos_hint={'center_x': 0.575, 'center_y': 0.5}))
             
             # 創建勾選框並設置為選中狀態（因為All默認選中）
             checkbox = CheckBox(
@@ -265,7 +286,7 @@ class PlaylistScreen(Screen):
             float_layout.add_widget(checkbox)
             
             cell.add_widget(float_layout)
-            label = Label(text=f'Image {idx+1}', size_hint=(1, None), height=30, color=(0,0,0,1))
+            label = Label(text=f'{"Video" if is_video else "Image"} {idx+1}', size_hint=(1, None), height=30, color=(0,0,0,1))
             cell.add_widget(label)
             grid.add_widget(cell)
         

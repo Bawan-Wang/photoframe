@@ -45,6 +45,18 @@ sudo apt install libheif-examples python3-pytest
 
 沒裝 `libheif-examples` 時相框照常運作，只是 HEIC 照片會被略過並印 log。
 
+### 5. 影片播放與轉檔
+
+```bash
+# ffmpeg／ffprobe：判斷影片格式、轉檔、抽封面
+# gstreamer：Kivy 的影片播放（video provider 為 gstplayer）
+sudo apt install ffmpeg \
+    gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-libav
+```
+
+沒裝 ffmpeg 時影片直接用原檔播放，不判斷、不轉檔；播不動的影片會在 10 秒後被跳過。
+
 > **OTA 不會安裝 apt 套件。** `rabbitctl.sh update` 只替換檔案並執行 `pip install`，
 > 已經出貨的裝置要手動執行上面的 `apt install`。
 
@@ -77,6 +89,23 @@ python3 -c "import kivy; print('Kivy 安裝成功')"
 - 打開相框時只檢查快取，需要處理的照片在背景做，處理好一張就加進輪播
 - 舊版留下的 `thumbnails/` 根目錄下的檔案（不在 `v2/` 裡的）已不再使用，可以刪除
 - GIF 直接用原檔（保留動畫）
+
+## 影片
+
+- 支援 `.mp4 .mov .m4v .avi .mkv .3gp .mts .webm`；自動播放遇到影片會等它播完才切換
+- Raspberry Pi 5 沒有 H.264 硬體解碼，實測 1080p 只有約 20 fps、720p 約 27 fps，因此影片以短邊 720 為上限：
+  - H.264、短邊 ≤ 720、≤ 30 fps、沒有旋轉標記：直接播放原檔
+  - H.264 但比較大（例如 iPhone 1080p）：**先播原檔**，同時在背景轉成 720p，轉好後自動換成轉檔版本
+  - 其他（HEVC、帶旋轉標記、pcm 音訊等）：背景轉檔，轉好才出現在輪播裡
+- 轉檔只在相框開著時進行，1 分鐘的 1080p 影片大約要轉 1.3 分鐘；關掉相框會中止，下次打開重轉
+- 與照片同名的影片（iPhone 原況照片的 `IMG_x.MOV`）會被略過
+- 快取（同在 `thumbnails/v2/`）：
+  - `<原檔名>.mp4`：轉檔結果
+  - `<原檔名>.poster.jpg`：封面（播放前的預覽與播放清單頁的縮圖）
+  - `<原檔名>.failed`：讀不了也轉不了，整支略過；`<原檔名>.transcode-failed`：原檔能播但轉檔失敗，繼續播原檔
+  - 轉檔結果需要隨身碟上有空間（大約是原影片的 1/5 到 1/2）
+- 影片預設**靜音**（`ui/slide_page.py` 的 `VIDEO_VOLUME = 0`）：麥克風與喇叭是同一個 USB 裝置，影片有聲音時
+  語音助理幾乎聽不到喚醒詞。要讓影片有聲音，需先做回音消除（尚未實作）
 
 ## 測試
 
