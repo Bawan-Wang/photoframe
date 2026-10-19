@@ -46,6 +46,8 @@ class PlaylistScreen(Screen):
         self.selected = set()
         self.all_checkbox = None
         self.image_checkboxes = []
+        self.scroll = None
+        self._grid_signature = None
         self.root_layout = BoxLayout(orientation='vertical', spacing=0, padding=0)
         self.build_header()
         self.build_grid()
@@ -141,6 +143,11 @@ class PlaylistScreen(Screen):
 
     def on_pre_enter(self, *args):
         """頁面進入前初始化選中狀態"""
+        # 背景處理完的照片、晚做好的小縮圖：清單有變就重建格狀頁。
+        # 一定要在還原勾選狀態之前，還原的對象才是新的勾選框
+        if self._current_grid_signature() != self._grid_signature:
+            self.build_grid()
+
         # 加載保存的狀態
         saved_state = self.load_checkbox_state()
         
@@ -218,8 +225,18 @@ class PlaylistScreen(Screen):
         header.add_widget(slideshow_btn)
         self.root_layout.add_widget(header)
 
+    def _current_grid_signature(self):
+        return [(path, self.repository.get_thumbnail(path))
+                for path in self.repository.get_image_files()]
+
     def build_grid(self):
-        images = self.repository.get_image_files()
+        """建立格狀頁；可以重複呼叫，會換掉舊的"""
+        if self.scroll is not None:
+            self.root_layout.remove_widget(self.scroll)
+        self.image_checkboxes = []
+        self._grid_signature = self._current_grid_signature()
+
+        images = [path for path, _ in self._grid_signature]
         grid = GridLayout(cols=4, spacing=20, padding=[20, 20, 20, 20], size_hint_y=None)
         grid.bind(minimum_height=grid.setter('height'))
         
@@ -227,8 +244,9 @@ class PlaylistScreen(Screen):
             cell = BoxLayout(orientation='vertical', size_hint_y=None, height=180)
             float_layout = FloatLayout(size_hint=(1, None), height=100)
             
-            if os.path.exists(img_path):
-                img = Image(source=img_path, size_hint=(0.85, 1), pos_hint={'x': 0.15, 'y': 0}, allow_stretch=True, keep_ratio=False)
+            thumb_path = self.repository.get_thumbnail(img_path)
+            if os.path.exists(thumb_path):
+                img = Image(source=thumb_path, size_hint=(0.85, 1), pos_hint={'x': 0.15, 'y': 0}, allow_stretch=True, keep_ratio=True)
             else:
                 img = Label(text='No Image', size_hint=(0.85, 1), pos_hint={'x': 0.15, 'y': 0})
             float_layout.add_widget(img)
@@ -251,9 +269,9 @@ class PlaylistScreen(Screen):
             cell.add_widget(label)
             grid.add_widget(cell)
         
-        scroll = ScrollView(size_hint=(1, 1))
-        scroll.add_widget(grid)
-        self.root_layout.add_widget(scroll)
+        self.scroll = ScrollView(size_hint=(1, 1))
+        self.scroll.add_widget(grid)
+        self.root_layout.add_widget(self.scroll)
 
     def on_checkbox(self, checkbox, value):
         """處理個別圖片勾選框的變化"""
