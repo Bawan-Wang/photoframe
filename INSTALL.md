@@ -8,6 +8,10 @@ Kivy 都由系統套件庫提供，用 `apt` 安裝才能拿到對應這台機�
 
 因此請照下面的步驟逐一用 `apt` 安裝。
 
+> **在 digitalassist 中使用時（`photoframe/` submodule）**，以上層 repo 的
+> `system-packages.txt` 為準，在上層目錄執行 `./rabbitctl.sh deps`（開發機加 `--dev`）
+> 一次裝齊，不必照下面逐段安裝。下面的步驟是單獨使用 photoframe 時用的。
+
 ### 1. 安裝 Pillow (Python Imaging Library)
 
 ```bash
@@ -28,14 +32,7 @@ python3 -c "import kivy"
 sudo apt install python3-kivy
 ```
 
-### 3. 安裝其他依賴
-
-```bash
-# 安裝 Python 套件管理工具
-sudo apt install python3-pip python3-setuptools
-```
-
-### 4. HEIC 照片與測試工具
+### 3. HEIC 照片與測試工具
 
 ```bash
 # heif-convert：讀取 iPhone 的 HEIC 照片（bookworm 的 apt 沒有 pillow_heif）
@@ -45,7 +42,7 @@ sudo apt install libheif-examples python3-pytest
 
 沒裝 `libheif-examples` 時相框照常運作，只是 HEIC 照片會被略過並印 log。
 
-### 5. 影片播放與轉檔
+### 4. 影片播放與轉檔
 
 ```bash
 # ffmpeg／ffprobe：判斷影片格式、轉檔、抽封面
@@ -58,7 +55,8 @@ sudo apt install ffmpeg \
 沒裝 ffmpeg 時影片直接用原檔播放，不判斷、不轉檔；播不動的影片會在 10 秒後被跳過。
 
 > **OTA 不會安裝 apt 套件。** `rabbitctl.sh update` 只替換檔案並執行 `pip install`，
-> 已經出貨的裝置要手動執行上面的 `apt install`。
+> 已經出貨的裝置要在上層目錄手動執行 `./rabbitctl.sh deps`；`./rabbitctl.sh deps --check`
+> 不需要 root，會列出缺少的套件。
 
 ## 驗證安裝
 
