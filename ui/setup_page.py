@@ -9,6 +9,7 @@ from kivy.uix.slider import Slider
 from kivy.uix.popup import Popup
 from kivy.graphics import Color, RoundedRectangle
 from kivy.properties import NumericProperty, BooleanProperty
+from services import backlight
 from services.service_manager import ServiceManager
 
 class CustomNumberInput(TextInput):
@@ -374,53 +375,31 @@ class SetupScreen(Screen):
     def get_system_brightness_percent(self):
         """從系統讀取當前亮度值並轉換為 0-100 百分比"""
         try:
-            brightness_file = '/sys/class/backlight/11-0045/brightness'
-            
-            if os.path.exists(brightness_file):
-                with open(brightness_file, 'r') as f:
-                    current_brightness = int(f.read().strip())
-                
-                # 將 8-31 範圍轉換為 0-100 百分比
-                # 反向映射：8 -> 0%, 31 -> 100%
-                if current_brightness <= 8:
-                    return 0
-                elif current_brightness >= 31:
-                    return 100
-                else:
-                    percent = int(((current_brightness - 8) / (31 - 8)) * 100)
-                    return percent
-            else:
-                print(f"警告: 亮度控制文件不存在: {brightness_file}")
-                return 50  # 預設值
-                
+            percent = backlight.read_percent()
+            if percent is None:
+                print(f"警告: 找不到背光裝置: {backlight.BACKLIGHT_ROOT}")
+                return backlight.DEFAULT_PERCENT
+            return percent
         except Exception as e:
             print(f"讀取系統亮度時發生錯誤: {e}")
-            return 50  # 預設值
-    
+            return backlight.DEFAULT_PERCENT
+
     def set_system_brightness(self, brightness_percent):
-        """通過 sysfs 設置系統亮度"""
+        """通過 sysfs 設置系統亮度（自動找背光裝置，見 services/backlight.py）"""
         try:
-            # 將 0-100 的百分比映射到 8-31 範圍，避免螢幕太黑
-            # 使用線性映射：0% -> 8, 100% -> 31
-            brightness_value = int(8 + (brightness_percent / 100.0) * (31 - 8))
-            
-            # 使用你系統中實際存在的亮度控制文件路徑
-            brightness_file = '/sys/class/backlight/11-0045/brightness'
-            
-            if os.path.exists(brightness_file):
-                with open(brightness_file, 'w') as f:
-                    f.write(str(brightness_value))
-                print(f"已通過 sysfs 設置亮度: {brightness_percent}% -> {brightness_value}/31 (映射範圍: 8-31)")
-            else:
-                print(f"警告: 亮度控制文件不存在: {brightness_file}")
+            result = backlight.write_percent(brightness_percent)
+            if result is None:
+                print(f"警告: 找不到背光裝置: {backlight.BACKLIGHT_ROOT}")
                 print("請確認 Raspberry Pi 硬體配置或使用其他亮度控制方法")
-                
+                return
+            device, raw, max_raw = result
+            print(f"已通過 sysfs 設置亮度: {brightness_percent}% -> {raw}/{max_raw} ({device})")
         except PermissionError:
             print("權限不足，無法寫入亮度控制文件")
             print("請嘗試使用 sudo 運行程序或將用戶加入 video 組")
         except Exception as e:
             print(f"設置系統亮度時發生錯誤: {e}")
-    
+
     def goto_home(self, instance):
         """返回主頁"""
         self.manager.current = 'home'
