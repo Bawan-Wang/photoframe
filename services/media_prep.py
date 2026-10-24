@@ -16,7 +16,8 @@ import time
 from PIL import Image as PILImage
 from PIL import ImageOps
 
-IMAGE_EXTS = ('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.heic', '.heif')
+from services.media_paths import IMAGE_EXTS, MEDIA_EXTS, VIDEO_EXTS
+
 HEIF_EXTS = ('.heic', '.heif')
 DEFAULT_MAX_IMAGE_SIZE = (1920, 1080)
 THUMB_SIZE = (360, 360)
@@ -25,8 +26,6 @@ PART_SUFFIX = '.part'
 FAILED_SUFFIX = '.failed'
 HEIF_CONVERT_TIMEOUT = 120
 
-VIDEO_EXTS = ('.mp4', '.mov', '.m4v', '.avi', '.mkv', '.3gp', '.mts', '.webm')
-MEDIA_EXTS = IMAGE_EXTS + VIDEO_EXTS
 # Phase 0 實測：gstplayer 播 1080p 只有約 20 fps，720p 約 27 fps
 MAX_VIDEO_SHORT_SIDE = 720
 MAX_VIDEO_FPS = 30
